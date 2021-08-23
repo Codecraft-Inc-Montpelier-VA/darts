@@ -1,0 +1,299 @@
+
+== Introduction
+
+This document describes the `darts` source code and provides 
+instructions for its execution.
+
+The `darts` program is a visual test program for 
+Simple C/C++ Coroutines using Codecraft's open-source sccor library.
+`darts` runs in an ncursesfootnote:[new curses, a 
+programming library providing an API that allows the programmer to 
+write text-based user interfaces 
+in a terminal-independent manner.] Terminal window as a 
+command-line executable.
+(((sccor Library)))
+(((ncurses)))
+This simple coroutines implementation  
+supports lightweight cooperative multitasking and provides
+for asynchronous programming through the use of Edisonfootnote:[See _Software 
+Practice and Experience_, Volume 11 No 4, devoted to the Edison papers, 
+Per Brinch Hansen.]-inspired, 
+single-threaded, non-preemptive, ring-based coroutines.
+(((Edison)))
+
+This version of `darts` is an x86_64 executable running on macOS
+and Windows (Cygwin).
+
+=== How to Read This Document
+
+This document is a
+http://literateprogramming.com[literate program document].
+As such it includes a complete description of both the design and
+implementation of the `darts` test program for simple C/C++ coroutines.
+Further information on the particular literal programming syntax
+used here is given in <<literate-programming,Literate Programming>>.
+
+=== Background
+
+The `darts` program was initially developed as a test vehicle for 
+the sccor library. 
+Recently I decided to implement `darts` as a literate program
+to better explain the +darts+ design and logic in an order and 
+fashion that hopefully facilitates your understanding of the 
+implementation, as well as providing all of the code.
+
+(((coroutine statements,`cobegin`)))
+(((coroutine statements,`coresume`)))
+(((coroutine statements,`invoke`)))
+(((coroutine statements,`wait`)))
+(((coroutine statements,`waitEx`)))
+(((coroutine statements,`when`)))
+I hope that the +darts+ program code presented here 
+demonstrates how easy it can be to create an
+application with many cooperative tasks by the use of coroutines.
+These coroutines are just standard C/C++ procedures, 
+with the simple addition of two coroutine statements 
+from the sccor library:
+  
+* `cobegin`, to initialize 
+coroutine execution and put one or more coroutines on the multitasking 
+ring, and 
+
+* `coresume`, to perform an unconditional task switch to yield execution
+to the other coroutines on the ring, as appropriate to maintain 
+the behavior and performance profile of 
+the ensemble of executing coroutines.
+
+TIP: In our case a coroutine is just an ordinary C/C++ procedure 
+which contains at least one `coresume` statement.
+
+The `cobegin` statement blocks further execution of the calling routine
+while the coroutine instances `cobegin` created are executing.
+When all coroutine instances have exited, the routine that
+issued the `cobegin` statement (usually `main`) continues its 
+execution in a normal manner.
+
+For a trivial example, here is a coroutine, `repeatChar`, that writes 
+its input character a specified number of times and exits.
+After each character is written, `repeatChar` yields
+via a `coresume` statement.
+
+[source,C]
+----
+void repeatChar( char c, int count ) {
+   for ( i = 0; i < count; i++ ) {
+      putchar( c ) ;
+      coresume() ;
+   }
+}
+----
+
+When executed as the only coroutine instance, with input character `a' 
+and a count of 10, +repeatChar+ produces this string of 10 a's on stdout:
+
+----
+aaaaaaaaaa
+----
+
+When two instances of +repeatChar+ are executed together, the first 
+with input `a' and a count of 10 (as before) and a second with input 
+`b' and also a count of 10, their interleaved output is:
+ 
+----
+abababababababababab
+---- 
+
+Each instance of `repeatChar` acts as an independent task, ouputting its
+designated character.
+By issuing a `coresume` after outputting its character, the instance allows 
+any another instance to do its thing, in this case outputting its character.
+This leads to the string of interspersed a's and b's of the result.
+
+Here's the `cobegin` statement to start these two instances:
+
+[source,C]
+----
+cobegin( 2,                            // start 2 coroutines
+            repeatChar, 2, 'b', 10,    // 2 parms ('b' and 10)
+            repeatChar, 2, 'a', 10     // 2 parms ('a' and 10)
+) ;
+----
+
+The second instance executes first, since the coroutines are
+stacked by `cobegin` until it completes its initialization.
+
+Besides `cobegin` and `coresume`, the sccor library provides a few 
+optional statements: 
+
+* `invoke` adds another coroutine to the 
+ring of currently-executing coroutines,
+
+* `wait` delays a coroutine's execution for at least a specified 
+number of milliseconds while continuing other coroutines,
+
+* `waitEx` waits for at least a specified number of milliseconds 
+while continuing other coroutines; the waiting period is interrupted 
+if a specified boolean becomes false, and
+
+* `when` provides a conditional task switch, continuing other coroutines
+until a specified boolean becomes true. 
+ 
+Note that there is no need for a special "coroutine exit" command to 
+complete execution of a coroutine.  
+Coroutines exit by the ordinary C/C++ procedure behavior, either
+by an `exit` statement or just "falling off" the end of the function. 
+
+We'll see examples of these coroutine statements in the implementation 
+of the `darts` program. 
+
+=== Overview
+
+An interactive and visual representation of multiple coroutines' 
+execution allows an observation of their speed and consistency 
+of performance as the number of instances increases.
+ 
+The `darts` program provides the user with a graphical Terminal screen and 
+a keyboard interface with which to 
+start and stop instances of four coroutines:
+ 
+. +rightArrows+ makes `>' darts from left to right and back 
+on a randomly-chosen row. 
+. +leftArrows+ makes `<' darts from right to left and back 
+on a randomly-chosen row.
+. +upArrows+ makes `A' darts from bottom to top and back 
+on a randomly-chosen column. 
+. +downArrows+ makes `V' darts from top to bottom and back 
+on a randomly-chosen column.
+ 
+When the `darts` program is executed, a blank Terminal window 
+is shown initially. 
+
+Two coroutines are running, inconspicuously:
+
+. `userInterface`
+. `roundTripCounter`
+
+The `userInterface` coroutine reads keystrokes and performs the indicated
+user actions.
+ 
+The `roundTripCounter` just counts the number of trips around the 
+coroutine ring. Before exiting, `darts` displays the number of active
+coroutine instances at exit, the coroutine 
+roundtrip count, and average time per cycle. 
+
+== `darts` Execution Instructions
+
+. Run the `darts` executable in a macOSfootnote:[Big Sur (11.0), or later,
+ is supported.] or Windows (Cygwin) Terminal. 
++
+`darts` starts with a blank Terminal screen:
++
+image::blank_screen.png[height=175,align="left"]
+
+. Start an instance of one of the four darts coroutines 
+(above) by keying the corresponding `>', `<', `A', or `V' 
+(without the tick marks, and note that `A' and `V' are uppercase). 
+Each instance is invoked with a randomly-selected color 
+(the instance maintains its color during its lifetime).  
++
+Here is (a still shot of) +darts+ with one `>' instance running: 
++
+image::one_right_dart.png[height=175,align="left"]
++
+Obviously, the actual running performance is more spectacular !
+
+. Continue to add more instances by keying `>', `<', `A', or `V'.
++
+And try interspersing stopping the most recent instance of each type 
+by keying `.\', `,\', `a', or `v', respectively.  
++
+<<<
++
+Here four instances are running, one of each persuasion: 
++
+image::four_darts.png[height=175,align="left"]
++
+Each dart instance chooses its color randomly, then keeps its color 
+throughout its lifetime.
+For each traverse of the screen, a dart instance randomly picks 
+its row (for `>' and `<' instances) or column 
+(for `A' and `V' instances). 
+
+. Rinse and repeat _ad nauseam_.
++
+Here are several instances running: 
++
+image::several_darts.png[height=175,align="left"]
++
+The "holes" in an instances's path are a result of another instance
+not restoring the previous contents while its path is returning 
+to initial position. 
+
+. Terminate the +darts+ session by keying uppercase `Q'.
++
+Uppercase `Q' quits +darts+ gracefully.
+Lowercase `q' panic stops, in mid-dart path.
+
+== Some Comments on `darts` Behavior 
+
+The default behavior of a +darts+' instance is to take approximately 
+one second to make an edge-to-edge transit across the screen, 
+and then another second to return. 
+This paced behavior may be overridden by keying a lowercase `w',
+allowing all coroutines to execute at maximum velocity 
+(_i.e._, without waiting for pacing).
+Paced execution may be resumed by keying an uppercase `W'.
+
+An instance of `>', `<', `A', or `V' may be terminated by keying
+`,\', `.\', `a', or `v', respectively.
+Note that these are the lowercase keys corresponding to the 
+instance activating keys.
+
+Having invoked a number of the various coroutine instances, the
+impatient user may key an uppercase `C' to invoke 100 additional 
+coroutine instances, 25 each of `>', `<', `A', and `V'.
+A lowercase `c' terminates the 100 most-recently-invoked instances.
+ 
+Even more:  keying uppercase `M' invokes 1,000 additional instances,
+250 each of `>', `<', `A', and `V'. 
+A lowercase `m' terminates the 1000 most-recently-invoked instances.
+
+These steps may be repeated as desired to gain an appreciation of the
+speed of these simple coroutines, especially without pacing.
+However, with a large number of instances, the visual 
+display may become complicated, if not confusing.
+
+`darts` limits the number of active instances to 3,000.
+As the number of instances approaches this limit, the time for each 
+instance to transit the screen increases substantially due to the 
+single-threaded nature of the sccor library coroutines implementation.
+
+Here are some representative screen transit timesfootnote:[On a MacBook 
+Pro (16-inch, 2019) with 2.4 GHz 8-Core Intel Core I9, running in an 80x24 
+window.] as the count of active dart instances increases:
+
+image::DartsTiming.png[width="60%",align="left"]
+ 
+For this +darts+ demonstration, with coroutine pacing implemented to
+produce target screen transit times of about one second, the performance 
+is flat through at least 100 concurrent darts instances, with
+a slight performance decrease through the next 900 or so instances.
+Above that, the increased time required for a screen transit 
+becomes noticeable.
+However, in the real world, more than 1,000 concurrently 
+executing coroutine instances would be extraordinarily uncommon.
+For example, the number of concurrent instances employed in testing embedded 
+medical devices with the Repeatable Random Test Generator (RRTGen), 
+which utilizes these simple sccor Library coroutines, is generally 
+less than 20.
+
+In a real application, the performance of these simple coroutines must be 
+analyzed with respect to the application's performance requirements.
+In my experience, the performance of these coroutines is more than satisfactory.
+As a point of reference, with 100 dart instances running, the
+average elapsed time for an execution cycle (_i.e._, from a given instance's
+yielding with a +coresume+ until it starts executing again at the statement
+after the +coresume+) is 21 microseconds.
+With 4 instances running, the elapsed time is 1.6 microseconds.
+ 
+

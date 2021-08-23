@@ -1,0 +1,1147 @@
+
+<<<
+== Implementation
+
+First, the coroutines comprising the +darts+ program. 
+
+=== +rightArrows+ Coroutine
+
+Makes `>' darts from left to right and back on a randomly-chosen row until
+either +orderlyStop+ or +panicStop+ is true, or +instanceId+ is greater
+than the global +rightArrowsInstanceId+ value.
+
+(((chunk,right arrows)))
+[source,c]
+----
+<<right arrows>>=
+void rightArrows( chtype color, int instanceId )
+{
+   while ( !orderlyStop && !panicStop && instanceId <= rightArrowsInstanceId ) {
+      int row = random() % nrows ;
+
+      for ( int column = 0; !panicStop && column < ncols; column++ ) {
+         wmove( w, row, column ) ;
+         wechochar( w, ACS_RARROW | color ) ;
+         if ( withPacing ) {
+            wait( 1000 / ncols ) ; // ms
+         } else {
+            coresume() ;
+         }
+      }
+      for ( int column = ncols - 1; !panicStop && column >= 0; column-- ) {
+         wmove( w, row, column ) ;
+         wechochar( w, ' ' ) ;
+         if ( withPacing ) {
+            wait( 1000 / ncols ) ; // ms
+         } else {
+            coresume() ;
+         }
+      }
+   }
+}
+----
+
+The +rightArrows+ invocation keybinding to start one instance is `>' in 
+the +userInterface+ coroutine.
+
+If the count of currently active coroutines is less than the maximum,
+an instance of +rightArrows+ is invoked.
+If invoked, the instance is assigned a random color, 
+which it keeps for its lifetime.
+Also, if invoked, the count of all +rightArrows+ instances in increased by one.
+
+(((chunk,right arrows invocation)))
+[source,c]
+----
+<<right arrows invocation>>=
+case '>':
+   {
+      if ( getCoroutineCount() <= MAX_DARTS ) {
+         randomColor = COLOR_PAIR( random() % COLOR_COUNT ) ;
+         invoke( (COROUTINE)rightArrows, 2, randomColor, 
+                 ++rightArrowsInstanceId ) ;
+      }
+   }
+   break ;
+----
+
+The keybinding for stopping the latest +rightArrows+ instance is `.'.
+
+A positive count of currently running +rightArrows+ instances is reduced
+by 1, causing the most-recently-invoked +rightArrows+ instance to
+exit after completing its current transits, since its +instanceId+ will
+be less than +rightArrowsInstanceId+.
+
+(((chunk,right arrows termination)))
+[source,c]
+----
+<<right arrows termination>>=
+case '.':
+   {
+      if ( rightArrowsInstanceId > 0 ) {
+         --rightArrowsInstanceId ;
+      } else {
+         rightArrowsInstanceId = 0 ;                     // <1>
+      }
+   }
+   break ;
+----
+<1> Being safe.
+
+
+=== +leftArrows+ Coroutine
+
+Makes `<' darts from right to left and back on a randomly-chosen row until
+either +orderlyStop+ or +panicStop+ is true, or +instanceId+ is greater
+than the global +leftArrowsInstanceId+ value.
+
+(((chunk,left arrows)))
+[source,c]
+----
+<<left arrows>>=
+void leftArrows( chtype color, int instanceId )
+{
+   while ( !orderlyStop && !panicStop && instanceId <= leftArrowsInstanceId ) {
+      int row = random() % nrows ;
+
+      for ( int column = ncols - 1; !panicStop && column >= 0; column-- ) {
+         wmove( w, row, column ) ;
+         wechochar( w, ACS_LARROW | color ) ;
+         if ( withPacing ) {
+            wait( 1000 / ncols ) ; // ms
+         } else {
+            coresume() ;
+         }
+      }
+      for ( int column = 0; !panicStop && column < ncols; column++ ) {
+         wmove( w, row, column ) ;
+         wechochar( w, ' ' ) ;
+         if ( withPacing ) {
+            wait( 1000 / ncols ) ; // ms
+         } else {
+            coresume() ;
+         }
+      }
+   }
+}                                                           
+----
+
+The +leftArrows+ invocation keybinding to start one instance is `<' in 
+the +userInterface+ coroutine.
+
+If the count of currently active coroutines is less than the maximum,
+an instance of +leftArrows+ is invoked.
+If invoked, the instance is assigned a random color, 
+which it keeps for its lifetime.
+Also, if invoked, the count of all +leftArrows+ instances in increased by one.
+
+(((chunk,left arrows invocation)))
+[source,c]
+----
+<<left arrows invocation>>=
+case '<':
+   {
+      if ( getCoroutineCount() <= MAX_DARTS ) {
+         randomColor = COLOR_PAIR( random() % COLOR_COUNT ) ;
+         invoke( (COROUTINE)leftArrows, 2, randomColor, 
+                 ++leftArrowsInstanceId ) ;
+      }
+   }
+   break ;
+----
+
+The keybinding for stopping the latest +leftArrows+ instance is `,'.
+
+A positive count of currently running +leftArrows+ instances is reduced
+by 1, causing the most recently invoked +leftArrows+ instance to
+exit after completing its current transits, since its +instanceId+ will
+be less than +leftArrowsInstanceId+.
+
+(((chunk,left arrows termination)))
+[source,c]
+----
+<<left arrows termination>>=
+case ',':
+   {
+      if ( leftArrowsInstanceId > 0 ) {
+         --leftArrowsInstanceId ;
+      } else {
+         leftArrowsInstanceId = 0 ;
+      }
+   }
+   break ;
+----
+
+=== +upArrows+ Coroutine
+
+Makes `A' darts from bottom to top and back on a randomly-chosen column
+until either +orderlyStop+ or +panicStop+ is true, or +instanceId+ is greater
+than the global +upArrowsInstanceId+ value.
+
+(((chunk,up arrows)))
+[source,c]
+----
+<<up arrows>>=
+void upArrows( chtype color, int instanceId )
+{
+   while ( !orderlyStop && !panicStop && instanceId <= upArrowsInstanceId ) {
+      int column = random() % ncols ;
+
+      for ( int row = nrows - 1; !panicStop && row >= 0; row-- ) {
+         wmove( w, row, column ) ;
+         wechochar( w, ACS_UARROW | color ) ;
+         if ( withPacing ) {
+            wait( 1000 / nrows ) ; // ms
+         } else {
+            coresume() ;
+         }
+      }
+      for ( int row = 0; !panicStop && row < nrows; row++ ) {
+         wmove( w, row, column ) ;
+         wechochar( w, ' ' ) ;
+         if ( withPacing ) {
+            wait( 1000 / nrows ) ; // ms
+         } else {
+            coresume() ;
+         }
+      }
+   }
+}
+----
+
+The +upArrows+ invocation keybinding to start one instance is `A' in 
+the +userInterface+ coroutine.
+
+If the count of currently active coroutines is less than the maximum,
+an instance of +upArrows+ is invoked.
+If invoked, the instance is assigned a random color, 
+which it keeps for its lifetime.
+Also, if invoked, the count of all +upArrows+ instances in increased by one.
+
+(((chunk,up arrows invocation)))
+[source,c]
+----
+<<up arrows invocation>>=
+case 'A':
+   {
+      if ( getCoroutineCount() <= MAX_DARTS ) {
+         randomColor  = COLOR_PAIR( random() % COLOR_COUNT ) ;
+         invoke( (COROUTINE)upArrows, 2, randomColor, 
+                 ++upArrowsInstanceId ) ;
+      }
+   }
+   break ;
+----
+
+The keybinding for stopping the latest +upArrows+ instance is `a'.
+
+A positive count of currently running +upArrows+ instances is reduced
+by 1, causing the most recently invoked +upArrows+ instance to
+exit after completing its current transits, since its +instanceId+ will
+be less than +upArrowsInstanceId+.
+
+(((chunk,up arrows termination)))
+[source,c]
+----
+<<up arrows termination>>=
+case 'a':
+   {
+      if ( upArrowsInstanceId > 0 ) {
+         --upArrowsInstanceId ;
+      } else {
+         upArrowsInstanceId = 0 ;
+      }
+   }
+   break ;
+----
+
+=== +downArrows+ Coroutine
+
+Makes `V' darts from top to bottom and back on a randomly-chosen column
+until either +orderlyStop+ or +panicStop+ is true, or +instanceId+ is greater
+than the global +downArrowsInstanceId+ value.
+
+(((chunk,down arrows)))
+[source,c]
+----
+<<down arrows>>=
+void downArrows( chtype color, int instanceId ) 
+{
+   while ( !orderlyStop && !panicStop && instanceId <= downArrowsInstanceId ) {
+      int column = random() % ncols ;
+
+      for ( int row = 0; !panicStop && row < nrows; row++ ) {
+         wmove( w, row, column ) ;
+         wechochar( w, /*ACS_DARROW*/ 'v' | color ) ;               // <1>
+         if ( withPacing ) {
+            wait( 1000 / nrows ) ; // ms
+         } else {
+            coresume() ;
+         }
+      }
+      for ( int row = nrows - 1; !panicStop && row >= 0; row-- ) {
+         wmove( w, row, column ) ;
+         wechochar( w, ' ' ) ;
+         if ( withPacing ) {
+            wait( 1000 / nrows ) ; // ms
+         } else {
+            coresume() ;
+         }
+      }
+   }
+}
+----
+<1> The ACS_DARROW character isn't a down arrow; it's more like the
+symbol for tautology (inverted T).  
+So we'll improvise with 'v'.
+
+The +downArrows+ invocation keybinding to start one instance is `V' in 
+the +userInterface+ coroutine.
+
+If the count of currently active coroutines is less than the maximum,
+an instance of +downArrows+ is invoked.
+If invoked, the instance is assigned a random color, 
+which it keeps for its lifetime.
+Also, if invoked, the count of all +downArrows+ instances in increased by one.
+
+(((chunk,down arrows invocation)))
+[source,c]
+----
+<<down arrows invocation>>=
+case 'V':
+   {
+      if ( getCoroutineCount() <= MAX_DARTS ) {
+         randomColor  = COLOR_PAIR( random() % COLOR_COUNT ) ;
+         invoke( (COROUTINE)downArrows, 2, randomColor, 
+                 ++downArrowsInstanceId ) ;
+      }
+   }
+   break ;
+----
+
+The keybinding for stopping the latest +downArrows+ instance is `v'.
+
+A positive count of currently running +downArrows+ instances is reduced
+by 1, causing the most recently invoked +downArrows+ instance to
+exit after completing its current transits, since its +instanceId+ value 
+will be less than +downArrowsInstanceId+.
+
+(((chunk,down arrows termination)))
+[source,c]
+----
+<<down arrows termination>>=
+case 'v':
+   {
+      if ( downArrowsInstanceId > 0 ) {
+         --downArrowsInstanceId ;
+      } else {
+         downArrowsInstanceId = 0 ;
+      }
+   }
+   break ;
+----
+
+=== +userInterface+ Coroutine
+
+This coroutine provides the user interface by waiting for a keyboard
+entry and then doing the corresponding action:
+
+* '>' (or '.') starts (or stops latest) right dart.
+* '<' (or ',') starts (or stops latest) left dart.
+* 'A' (or 'a') starts (or stops latest)  up dart.
+* 'V' (or 'v') starts (or stops latest)  down dart.
+* 'X' (or 'x') starts (or stops latest)  left X dart (for performance analysis).
+* 'W' (or 'w') starts (or stops pacing.
+* 'Q' (or 'q') quits gracefully (or panic stops, in mid-dart path).
+* 'C' (or 'c') starts (or stops latest) 100 dart instances, 25 of each type.
+* 'M' (or 'm') starts (or stops latest) 1000 dart instances, 250 of each type.
+
+The keyboard hit function (+kbhit+) is a rather expensive action, 
+since it interacts with the system.
+Consequently, and since there is no need for microsecond response times for the user
+interface, the +userInterface+ coroutine checks for a keyboard hit only every
+10th time it executes.
+
+(((chunk,user interface)))
+[source,c]
+----
+<<user interface>>=
+#define CHECK_KB_FREQUENCY 10
+----
+
+The user interface _per se_ consists of a +while+ statement enclosing a big 
++switch+ statement
+to pick out the keyboard entry and do the indicated action(s).
+
+[source,c]
+----
+<<user interface>>=
+void userInterface( void )
+{
+   char   c ;
+   chtype randomColor ;
+   int    loopCount = 0 ;
+
+   while ( !orderlyStop && !panicStop ) {
+      if ( ++loopCount >= CHECK_KB_FREQUENCY && kbhit() ) {
+         loopCount = 0 ;
+         c = getch() ;
+         switch ( c ) {
+            <<ui keybindings>>
+         }
+      }
+      coresume() ;
+   }
+}
+----
+
+The +userInterface+ coroutine is started by a +cobegin+ statement 
+in the +main+ routine when +darts+ begins execution.
+
+=== +roundTripCounter+ Coroutine
+
+This coroutine provides a count of the number of coroutine cycles.
+It can also collect data for a latency histogram showing the 
+times elapsed between successive 
+executions of +roundTripCounter+ (_i.e._,from +coresume+ until execution returns 
+to the next statement in +roundTripCounter+). 
+
+(((chunk,round trip counter)))
+[source,c]
+----
+<<round trip counter>>=
+void roundtripCounter( void )
+{
+   unsigned int coresumeCount = 0 ;
+   unsigned int startTime ;
+   unsigned int endTime ;
+   struct timeval tv ;
+
+   gettimeofday( &tv, (struct timezone *)NULL ) ;
+   startTime = tv.tv_sec * 1000 + tv.tv_usec / 1000 ;
+
+   bool otherCoroutinesComplete = false ;
+   while ( !otherCoroutinesComplete && !panicStop ) {
+      #ifdef SHOW_LATENCY_HISTOGRAM
+      itHistCR.tally() ;
+      #endif 
+      coresumeCount++ ;
+      coresume() ;
+      if ( orderlyStop && getCoroutineCount() < 2 ) {
+         otherCoroutinesComplete = true ; 
+      }
+   }
+
+   gettimeofday( &tv, (struct timezone *)NULL ) ;
+   endTime = tv.tv_sec * 1000 + tv.tv_usec / 1000 ;
+
+   when( getCoroutineCount() < 2 ) {                                 // <1>
+      sprintf( roundtripCounterOutputString,                         // <2>
+               ">>> coresume cycle count: %u (%u / sec).",
+               coresumeCount,
+               coresumeCount / ( ( endTime - startTime ) / 1000 ) ) ;
+      sprintf( instancesAtStopOutputString,                          // <3>
+               ">>>  darts count at stop: %u.", instancesActiveAtStop - 2 ) ;
+   }
+}
+
+----
+<1> We wait for this to be the last running coroutine. 
+The current coroutine implementation requires returning from +cobegin+ 
+from a coroutine with no calling parameters (like +roundTripCounter+). 
+
+<2> Here we prepare a line to display after leaving +ncurses+ windowing.
+<3> Another line to display post +ncurses+.
+
+The +roundTripCounter+ coroutine instance is started with +main+'s 
++cobegin+ statement when +darts+ begins execution.
+
+=== +leftXs+ Coroutine
+
+This is a performance testing coroutine, not normally invoked by +darts+ users.
+Similar in its behavior to the other +darts+ coroutines, +leftXs+ makes 'x' 
+darts from right to left and back on a randomly-chosen row until
+either +orderlyStop+ or +panicStop+ is true, or instanceId is greater
+than the global +leftXsInstanceId+ value.
++leftXs+ can collect data for a histogram showing individual and average 
+screen transit times.
+
+Note: There should be, at most, one +leftXs+ instance executing. 
+More than one instance running would produce incorrect transit times.
+
+(((chunk,x arrows)))
+[source,c]
+----
+<<x arrows>>=
+void leftXs( chtype color, int instanceId )
+{
+   while ( !orderlyStop && !panicStop && instanceId <= leftXsInstanceId ) {
+      #ifdef SHOW_TRANSIT_TIME_HISTOGRAM
+      itHistTT.tally() ;
+      #endif 
+      int row = random() % nrows ;
+
+      for ( int column = ncols - 1; !panicStop && column >= 0; column-- ) {
+         wmove( w, row, column ) ;
+         wechochar( w, 'x' | color ) ;
+         if ( withPacing ) {
+            wait( 1000 / ncols ) ; // ms
+         } else {
+            coresume() ;
+         }
+      }
+      #ifdef SHOW_TRANSIT_TIME_HISTOGRAM
+      itHistTT.tally() ;
+      #endif 
+      for ( int column = 0; !panicStop && column < ncols; column++ ) {
+         wmove( w, row, column ) ;
+         wechochar( w, ' ' ) ;
+         if ( withPacing ) {
+            wait( 1000 / ncols ) ; // ms
+         } else {
+            coresume() ;
+         }
+      }
+   }
+}                                                           
+----
+
+The +leftXs+ invocation keybinding to start one instance is `X' in 
+the +userInterface+ coroutine.
+
+If the count of currently active coroutines is less than the maximum,
+an instance of +leftXs+ is invoked.
+If invoked, the instance is assigned a random color, 
+which it keeps for its lifetime.
+Also, if invoked, the count of all +leftXs+ instances in increased by one.
+
+(((chunk,left x arrows invocation)))
+[source,c]
+----
+<<left x arrows invocation>>=
+case 'X':
+   {
+      if ( getCoroutineCount() <= MAX_DARTS ) {
+         randomColor  = COLOR_PAIR( random() % COLOR_COUNT ) ;
+         invoke( (COROUTINE)leftXs, 2, randomColor, 
+                 ++leftXsInstanceId ) ;
+      }
+   }
+   break ;
+----
+
+The keybinding for stopping the latest +leftXs+ instance is `x'.
+
+A positive count of currently running +leftXs+ instances is reduced
+by 1, causing the most recently invoked +leftXs+ instance to
+exit after completing its current transits, since its +instanceId+ will
+be less than +leftXsInstanceId+.
+
+(((chunk,left x arrows termination)))
+[source,c]
+----
+<<left x arrows termination>>=
+case 'x':
+   {
+      if ( leftXsInstanceId > 0 ) {
+         --leftXsInstanceId ;
+      } else {
+         leftXsInstanceId = 0 ;
+      }
+   }
+   break ;
+----
+
+=== Additional User Interface Keybindings
+
+The keybinding in the +userInterface+ coroutine for starting pacing 
+(after it has been stopped by the user) is `W' (for "wait").
+
+Pacing causes each +darts+ arrows instance to wait briefly after
+each character has been output to the screen.
+The wait time is calculated so that each screen traversal takes about 
+one secondfootnote:[Screen traversal times are greater as the
+number of +darts+ instances increases to the point where there is no
+wait time remaining before an instance is to output its next character.].
+
+(((chunk,pacing start)))
+[source,c]
+----
+<<pacing start>>=
+case 'W':
+   withPacing = true ;
+   break ;
+----
+
+The keybinding in the +userInterface+ coroutine to stop pacing is `w'.
+
+When pacing is stopped, all +darts+ arrow instances run "flat out",
+with no waiting between character outputs.
+There is just a +coresume+ statement executed after each character is
+output, so all other coroutines are given a chance to run.
+
+(((chunk,pacing stop)))
+[source,c]
+----
+<<pacing stop>>=
+case 'w':
+   withPacing = false ;
+   break ;
+----
+
+The keybinding in the +userInterface+ coroutine to gracefully quit 
+the execution of the +darts+ program is `Q'.
+
+Each running +darts+ arrow instance will complete its current two
+screen traversals and exit.
+
+The +main+ routine will clean up, return the Terminal to normal
+(non-+ncurses+) mode, display its +darts+ run statistics, and exit.
+
+(((chunk,quitting gracefully)))
+[source,c]
+----
+<<quitting gracefully>>=
+case 'Q':
+   instancesActiveAtStop = getCoroutineCount() ;
+   orderlyStop = true ;
+   break ;
+----
+
+The keybinding in the +userInterface+ coroutine to panic quit 
+the execution of the +darts+ program is `q'.
+
+Each running +darts+ arrow instance will immediately exit.
+
+The +main+ routine will clean up, return the Terminal to normal
+(non-+ncurses+) mode, display its +darts+ run statistics, and exit.
+
+(((chunk,quitting panic stop)))
+[source,c]
+----
+<<quitting panic stop>>=
+case 'q':
+   instancesActiveAtStop = getCoroutineCount() ;
+   panicStop = true ;
+   break ;
+----                
+
+A "shorthand" keybinding of `C' in the +userInterface+ coroutine allows
+the user to invoke 100 +darts+ arrow instances "at once".
+
+Actually, after each invocation, a +coresume+ statement is executed
+in order to give the just-invoked instance, as well as all other 
+currently running instances, a chance to execute.
+
+Twenty-five instances of each of the four flavors of +darts+ arrows 
+are invoked by a single `C' key input.
+
+(((chunk,century invocation)))
+[source,c]
+----
+<<century invocation>>=
+case 'C':
+   {
+      for ( int i = 0; i < 25; i++ ) {
+         if ( getCoroutineCount() <= MAX_DARTS ) {
+            randomColor = COLOR_PAIR( random() % COLOR_COUNT ) ;
+            invoke( (COROUTINE)rightArrows, 2, randomColor, 
+                    ++rightArrowsInstanceId ) ;
+            coresume() ;
+         }
+         if ( getCoroutineCount() <= MAX_DARTS ) {
+            randomColor = COLOR_PAIR(random() % COLOR_COUNT) ;
+            invoke( (COROUTINE)leftArrows, 2, randomColor, 
+                    ++leftArrowsInstanceId ) ;
+            coresume() ;
+         }
+         if ( getCoroutineCount() <= MAX_DARTS ) {
+            randomColor = COLOR_PAIR(random() % COLOR_COUNT) ;
+            invoke( (COROUTINE)upArrows, 2, randomColor, 
+                    ++upArrowsInstanceId ) ;
+            coresume() ;
+         }
+         if ( getCoroutineCount() <= MAX_DARTS ) {
+            randomColor = COLOR_PAIR(random() % COLOR_COUNT) ;
+            invoke( (COROUTINE)downArrows, 2, randomColor, 
+                    ++downArrowsInstanceId ) ;
+            coresume() ;
+         }
+      }
+   }
+   break ;
+----
+
+A keybinding of (lower-case) `c' in the +userInterface+ 
+coroutine allows the user to stop execution of the 100 most-recently
+invoked +darts+ arrow instances, twenty-five of each of the four
+flavors of +darts+ arrows instances.
+
+The instances are stopped normally, so each will complete its 
+current screen traversals before exiting.
+
+(((chunk,century termination)))
+[source,c]
+----
+<<century termination>>=
+case 'c':                              
+   {
+      if ( rightArrowsInstanceId > 25 ) {
+         rightArrowsInstanceId -= 25 ;
+      } else {
+         rightArrowsInstanceId = 0 ;
+      }
+      if ( leftArrowsInstanceId > 25 ) {
+         leftArrowsInstanceId -= 25 ;
+      } else {
+         leftArrowsInstanceId = 0 ;
+      }
+      if ( upArrowsInstanceId > 25 ) {
+         upArrowsInstanceId -= 25 ;
+      } else {
+         upArrowsInstanceId = 0 ;
+      }
+      if ( downArrowsInstanceId > 25 ) {
+         downArrowsInstanceId -= 25 ;
+      } else {
+         downArrowsInstanceId = 0 ;
+      }
+   }
+   break ;
+----
+
+A "shorthand" keybinding of `M' in the +userInterface+ coroutine allows
+the user to invoke 1,000 +darts+ arrow instances "at once".
+
+Actually, after each invocation, a +coresume+ statement is executed
+in order to give the just-invoked instance, as well as all other 
+currently running instances, a chance to execute.
+
+Two-hundred-fifty instances of each of the four flavors of +darts+ arrows 
+are invoked by a single `M' key input.
+
+(((chunk,millennium invocation)))
+[source,c]
+----
+<<millennium invocation>>=
+case 'M':
+   {
+      for ( int i = 0; i < 250; i++ ) {
+         if ( getCoroutineCount() <= MAX_DARTS ) {
+            randomColor = COLOR_PAIR( random() % COLOR_COUNT ) ;
+            invoke( (COROUTINE)rightArrows, 2, randomColor, 
+                    ++rightArrowsInstanceId ) ;
+            coresume() ;
+         }
+         if ( getCoroutineCount() <= MAX_DARTS ) {
+            randomColor = COLOR_PAIR(random() % COLOR_COUNT) ;
+            invoke( (COROUTINE)leftArrows, 2, randomColor, 
+                    ++leftArrowsInstanceId ) ;
+            coresume() ;
+         }
+         if ( getCoroutineCount() <= MAX_DARTS ) {
+            randomColor = COLOR_PAIR(random() % COLOR_COUNT) ;
+            invoke( (COROUTINE)upArrows, 2, randomColor, 
+                    ++upArrowsInstanceId) ;
+            coresume() ;
+         }
+         if ( getCoroutineCount() <= MAX_DARTS ) {
+            randomColor = COLOR_PAIR(random() % COLOR_COUNT) ;
+            invoke( (COROUTINE)downArrows, 2, randomColor, 
+                    ++downArrowsInstanceId ) ;
+            coresume() ;
+         }
+      }
+   }
+   break ;
+----
+
+A keybinding of (lower-case) `m' in the +userInterface+ 
+coroutine allows the user to stop execution of the 1,000 most-recently
+invoked +darts+ arrow instances, 250 of each of the four
+flavors of +darts+ arrows instances.
+
+The instances are stopped normally, so each will complete its 
+current screen traversals before exiting.
+
+(((chunk,millennium termination)))
+[source,c]
+----
+<<millennium termination>>=
+case 'm':                              
+   {
+      if ( rightArrowsInstanceId > 250 ) {
+         rightArrowsInstanceId -= 250 ;
+      } else {
+         rightArrowsInstanceId = 0 ;
+      }
+      if ( leftArrowsInstanceId > 250 ) {
+         leftArrowsInstanceId -= 250 ;
+      } else {
+         leftArrowsInstanceId = 0 ;
+      }
+      if ( upArrowsInstanceId > 250 ) {
+         upArrowsInstanceId -= 250 ;
+      } else {
+         upArrowsInstanceId = 0 ;
+      }
+      if ( downArrowsInstanceId > 250 ) {
+         downArrowsInstanceId -= 250 ;
+      } else {
+         downArrowsInstanceId = 0 ;
+      }
+   }
+   break ;
+----
+
+=== +main+ Routine
+
+The +main+ routine sets up the +ncurses+ screen environment,
+starts the initial coroutines,
+and handles the usual program administration activities. 
+
+First, +main+ initializes some counters.
+
+(((chunk,main routine)))
+[source,c]
+----
+<<main routine>>=
+int   main ( int argc, char *argv[] )
+{
+   orderlyStop               = false ;
+   panicStop                 = false ;
+   withPacing                = true ;
+   downArrowsInstanceId      = 0 ;
+   leftArrowsInstanceId      = 0 ;
+   leftXsInstanceId          = 0 ;
+   rightArrowsInstanceId     = 0 ;
+   upArrowsInstanceId        = 0 ;
+----
+
+It initializes our random stream to a repeatable value.
+
+[source,c]
+----
+<<main routine>>=
+   srandom( 1 ) ;
+----
+
+Then sets up +ncurses+.
+
+[source,c]
+----
+<<main routine>>=
+   w = initscr() ;
+   start_color() ; cbreak() ; noecho() ; leaveok( w, TRUE ) ; nonl() ;
+   use_default_colors() ;
+   init_pair( 1, short(COLOR_BLUE    | A_BOLD), short(-1) ) ;
+   init_pair( 2, short(COLOR_RED     | A_BOLD), short(-1) ) ;
+   init_pair( 3, short(COLOR_GREEN   | A_BOLD), short(-1) ) ;
+   init_pair( 4, short(COLOR_YELLOW  | A_BOLD), short(-1) ) ;
+   init_pair( 5, short(COLOR_MAGENTA | A_BOLD), short(-1) ) ;
+   init_pair( 6, short(COLOR_CYAN    | A_BOLD), short(-1) ) ;
+   init_pair( 7, short(COLOR_BLACK   | A_BOLD), short(-1) ) ;
+   #define COLOR_COUNT 7
+----
+
++main+ processes console input in raw mode while running the dart coroutines.
+
+[source,c]
+----
+<<main routine>>=
+   cbreak() ;
+----
+
+Next it finds the size of the window to keep darts within the window.
+
+[source,c]
+----
+<<main routine>>=
+   getmaxyx( w, nrows, ncols ) ;
+----
+
+Clearing the window and hiding the cursor.
+
+[source,c]
+----
+<<main routine>>=
+   int old_visibility ;
+   old_visibility = curs_set( 0 ) ;
+   clear() ;
+   refresh() ;
+----
+
+Now +main+ starts the initial two coroutines, +roundTripCounter+ 
+and +userInterface+.
+The +cobegin+ statement blocks after starting the two coroutines, and 
+remains blocked until after all coroutine instances have exited.
+
+[source,c]
+----
+<<main routine>>=
+   cobegin( 2,                                                       // <1>
+              roundtripCounter, 0,                                   // <2>
+              userInterface,    0                                    // <2>
+          ) ;
+----
+<1> Initial coroutine count (``2'').
+<2> No parameters (``0'').
+
+After all coroutines have finished their executions, processing continues here,
+at the statement following the +cobegin+ statement.
+The cursor is restored and console input is returned to cooked mode with echoing.
+
+[source,c]
+----
+<<main routine>>=
+   curs_set( old_visibility ) ;
+   nocbreak() ; echo() ;
+----
+
+Knocking down +ncurses+.
+
+[source,c]
+----
+<<main routine>>=
+   endwin() ;
+----
+
+Before exiting, +main+ shows the coroutine roundtrip count, average time per cycle,
+and the instance count at stop.
+
+[source,c]
+----
+<<main routine>>=
+   cout << roundtripCounterOutputString << endl << '\r' ;
+   cout << instancesAtStopOutputString  << endl ;
+----
+
+Finally, +main+ shows the optional histograms and returns.
+
+[source,c]
+----
+<<main routine>>=
+   #ifdef SHOW_LATENCY_HISTOGRAM
+   itHistCR.show( false ) ;                                          // <1>
+   itHistCR.reset() ;                                                // <2>
+   #endif 
+
+   #ifdef SHOW_TRANSIT_TIME_HISTOGRAM
+   itHistTT.show( false ) ;  
+   itHistTT.reset() ; 
+   #endif 
+
+   return( 0 ) ;
+}
+----
+<1> Omit log (``false'').
+<2> Clear histogram for next time.
+
+=== Include Files
+
+The +iostream+ include file is required for the +cout+ and 
++endl+ functions.
+
+(((chunk,include files)))
+[source,c]
+----
+<<include files>>=
+#include <iostream>
+----
+
+The +curses.h+ include file is required for the +ncurses+ library.
+(((chunk,include files)))
+[source,c]
+----
+<<include files>>=
+#include <curses.h>
+----
+
+The +sys/time.h+ include file is required for +gettimeofday+.
+
+(((chunk,include files)))
+[source,c]
+----
+<<include files>>=
+#include <sys/time.h>
+----
+
+The +sccorlib.h+ include file provides access to the sccor 
+library's coroutine functionality.
+
+(((chunk,include files)))
+[source,c]
+----
+<<include files>>=
+#include "sccorlib.h"
+----
+
+The +histospt.h+ include file provides histogram support. 
+
+(((chunk,include files)))
+[source,c]
+----
+<<include files>>=
+#if defined (SHOW_LATENCY_HISTOGRAM) || defined (SHOW_TRANSIT_TIME_HISTOGRAM)
+#include "histospt.h"              
+#endif 
+----
+
+=== Constants
+
+These global constants are shared by the coroutines.
+
+The number of columns (+ncols+) and rows (+nrows+) are obtained from +ncurses+.
+
+(((chunk,constants)))
+[source,c]
+----
+<<constants>>=
+int ncols, nrows ;
+----
+
+If histograms are desired, their instantiation is here, one for each
+histogram type.
+
+[source,c]
+----
+<<constants>>=
+#ifdef SHOW_LATENCY_HISTOGRAM
+ TimeIntervalHistogram  itHistCR( "coresume round-trip times (us)",
+                                  0L, 250, 40 ) ; // 0 - 10 ms
+#endif 
+#ifdef SHOW_TRANSIT_TIME_HISTOGRAM
+ TimeIntervalHistogram  itHistTT( "screen transit times (us)",
+                                  0L, 125000, 40 ) ; // 0 - 5000 ms
+#endif 
+----
+
+=== Variables
+
+These global variables are shared by the coroutines.
+
+`w' is the +ncurses+ canvas that the darts coroutines write on.
+
+(((chunk,variables)))
+[source,c]
+----
+<<variables>>=
+WINDOW *w ;
+----
+
+These string buffers are where +roundTripCounter+ stores the 
+count of coroutine roundtrips, average time per roundtrip, and 
+the instance count when +darts+ is stopped.
+The allocated size of 80 bytes is ample for the strings.
++main+ writes these buffers to the console before exiting.
+
+[source,c]
+----
+<<variables>>=
+char roundtripCounterOutputString[80] ; 
+char instancesAtStopOutputString[80] ;
+----
+
+Some boolean flags.
+They are +volatile+ so `C' doesn't optimize code so that it misses changes
+to their values.
+
+[source,c]
+----
+<<variables>>=
+volatile bool orderlyStop ;
+volatile bool panicStop ;
+volatile bool withPacing ;
+-----
+
+These counters control stopping the latest instance(s) of each kind of
+dart.
+
+[source,c]
+----
+<<variables>>=
+volatile int downArrowsInstanceId ;
+volatile int leftArrowsInstanceId ;
+volatile int leftXsInstanceId ;
+volatile int rightArrowsInstanceId ;
+volatile int upArrowsInstanceId ;
+----
+
+This variable allows sharing the final dart coroutine count just
+before quitting.
+
+[source,c]
+----
+<<variables>>=
+volatile int instancesActiveAtStop ;
+----
+
+=== Forward References
+
+Here are the prototype declarations for all of the routines that 
+comprise +darts+.
+
+(((chunk,forward references)))
+[source,c]
+----
+<<forward references>>=
+int  kbhit( void ) ;
+void userInterface( void ) ;
+void roundtripCounter( void ) ;
+void downArrows( chtype color, int instanceId ) ;
+void leftArrows( chtype color, int instanceId ) ;
+void rightArrows( chtype color, int instanceId ) ;
+void upArrows( chtype color, int instanceId ) ;
+void leftXs( chtype color, int instanceId ) ;
+----
+
+=== Configuration Options
+
+The following define sets the maximum number of dart instances allowed.
+It should not be increased without investigating the current limits in the sccor
+Library.
+
+(((chunk,configuration)))
+[source,c]
+----
+<<configuration>>=
+#define MAX_DARTS 3000
+----
+
+Besides reporting the coroutine roundtrip count and the average time per cycle, 
+the +roundTripCounter+ coroutine can optionally provide a histogram 
+of the coroutine roundtrip cycle times (_i.e._, the elapsed times, or latencies,
+recorded for successive executions of the +roundTripCounter+ 
+coroutine).
+
+Uncomment the following define line for a histogram of coroutine
+roundtrip latencies.
+
+[source,c]
+----
+<<configuration>>=
+//#define SHOW_LATENCY_HISTOGRAM
+----
+
+In order to measure the screen transit time changes as the number of active
+dart instances increases, a special `X' arrow dart (+leftXs+) 
+may be started after
+a given number of normal `>', `<', `A', and `V' instances are running.
+Letting the `X' instance execute for a few transits, a histogram can be
+produced showing the `X' instance's individual transit times and the 
+average for the given number of instances.
+ 
+The table and graph in the section ``Some Comments on +darts+ Behavior'' 
+were produced by this method, 
+with the given number of instances being 
+1, 10, 100, 1000, 1500, 2000, 2500, and 3000.    
+
+Uncomment the following define line for a histogram of screen transit
+times for +leftXs+ instance.
+
+[source,c]
+----
+<<configuration>>=
+//#define SHOW_TRANSIT_TIME_HISTOGRAM
+----
+

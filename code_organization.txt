@@ -1,0 +1,110 @@
+== Code Layout
+
+In literate programming terminology,
+a _chunk_ is a named part of the final program.
+The program chunks form a tree and the root of that tree
+is named '\*' by default.
+We follow the convention of naming the root the same as the output
+file name, in this case +darts.cpp+.
+The process of extracting the program tree formed by the chunks is
+called _tangle_.
+The program, +atangle+, extracts the root chunk to produce
+the C/C++ source file.
+
+=== +darts.cpp+
+
+(((chunk,darts.cpp)))
+[source,c]
+----
+<<darts.cpp>>=
+<<edit warning>>
+<<copyright info>>
+/*
+ *++
+ * Project:
+ *   +darts+ -- a test program for coroutines and ncurses.  <by Cary WR Campbell>
+ *
+ * Module:
+ *   +darts+ executable for macOS.
+ *--
+ */
+/*
+ * Configuration
+ */
+<<configuration>>
+/*
+ * Include files
+ */
+<<include files>>
+using namespace std ;
+/*
+ * Constants
+ */
+<<constants>>
+/*
+ * Variables
+ */
+<<variables>>
+/*
+ * Forward References
+ */
+<<forward references>>
+/*
+ * darts main routine
+ */
+<<main routine>>
+/*
+ * darts Coroutines
+ */
+<<darts coroutines>>
+----
+
+==== +darts+ Coroutines
+
+In this chunk,
+we enumerate the +darts+ coroutines.
+
+(((chunk,darts coroutines)))
+----
+<<darts coroutines>>=
+<<right arrows>>
+<<left arrows>>
+<<up arrows>>
+<<down arrows>>
+<<x arrows>>
+<<user interface>>
+<<round trip counter>>
+----
+
+==== +darts+ Keybindings
+
+In this chunk,
+we enumerate the +userInterface+ keybindings.
+
+(((chunk,ui keybindings)))
+----
+<<ui keybindings>>=
+<<right arrows invocation>>
+<<right arrows termination>>
+<<left arrows invocation>>
+<<left arrows termination>>
+<<up arrows invocation>>
+<<up arrows termination>>
+<<left x arrows invocation>>
+<<left x arrows termination>>
+<<down arrows invocation>>
+<<down arrows termination>>
+<<century invocation>>
+<<century termination>>
+<<millennium invocation>>
+<<millennium termination>>
+<<pacing start>>
+<<pacing stop>>
+<<quitting gracefully>>
+<<quitting panic stop>>
+----
+
+include::edit_warning.txt[]
+
+include::copyright_info.txt[]
+

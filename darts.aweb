@@ -1,0 +1,16 @@
+= The +darts+ Program
+
+include::intro.txt[]
+
+include::implementation.txt[]
+
+include::code_organization.txt[]
+
+////
+include::bibliography.txt[]
+////
+
+include::litprog.txt[]
+
+[index]
+

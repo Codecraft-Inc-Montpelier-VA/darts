@@ -1,0 +1,24 @@
+
+[bibliography]
+== Bibliography
+[bibliography]
+.Programs
+- [[[cc-darts-program]]] Cary WR Campbell,
+    'The +darts+ Literate Program',
+    March 2021,
+    https://drive.google.com/file/d/1qOwo0P0nbFlritH3ha4FHqa6i1VwOTwS/view?usp=sharing.
+- [[[cc-darts-mac]]] Cary WR Campbell,
+    'The +darts+ Program Executable File--macOS Version',
+    March 2021,
+    https://drive.google.com/file/d/1fmRXu69oFyWag_Li-UGkLO-H0-Ufwt_q/view?usp=sharing.
+- [[[cc-darts-win]]] Cary WR Campbell,
+    'The +darts+ Program Executable File--Windows (Cygwin) Version',
+    March 2021,
+    https://drive.google.com/file/d/1MaQGIpnH1-i7DltL2f_RQaS0BBzxkOET/view?usp=sharing.
+[bibliography]
+.Projects
+- [[[cc-darts-git]]] Cary WR Campbell,
+    'The +darts+ Program GitHub Project',
+    August 2021,
+    https://github.com/Codecraft-Inc-Montpelier-VA/darts.
+
